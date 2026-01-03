@@ -1,0 +1,37 @@
+name: test Auto Renew
+
+on:
+  schedule:
+    - cron: '0 0 */3 * *' # 每3天运行一次
+  workflow_dispatch:      # 允许手动按钮触发测试
+
+jobs:
+  renew-job:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Dependencies
+        run: |
+          pip install undetected-chromedriver selenium requests
+
+      - name: Run Script
+        env:
+          ORIHOST_USER: ${{ secrets.ORIHOST_USER }}
+          ORIHOST_PASS: ${{ secrets.ORIHOST_PASS }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: python ori_app.py
+
+      - name: Upload Error Screenshot
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: error-screenshot
+          path: error_screenshot.png
