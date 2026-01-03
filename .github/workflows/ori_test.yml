@@ -1,19 +1,19 @@
-name: test Auto Renew
+name: Orihost Auto Renew
 
 on:
   schedule:
-    - cron: '0 0 */3 * *' # 每3天运行一次
-  workflow_dispatch:      # 允许手动按钮触发测试
+    - cron: '0 0 */3 * *' 
+  workflow_dispatch:      
 
 jobs:
   renew-job:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # 升级到 v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # 升级到 v5
         with:
           python-version: '3.9'
 
@@ -27,11 +27,12 @@ jobs:
           ORIHOST_PASS: ${{ secrets.ORIHOST_PASS }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
-        run: python ori_app.py
+        run: python auto_renew.py
 
-- name: Upload Error Screenshot
+      # 如果您想删除，直接删掉下面这几行
+      - name: Upload Error Screenshot
         if: failure()
-        uses: actions/upload-artifact@v4  # 升级到 v4 即可正常运行
+        uses: actions/upload-artifact@v4 # 升级到 v4
         with:
           name: error-screenshot
           path: error_screenshot.png
