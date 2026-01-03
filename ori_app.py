@@ -41,27 +41,26 @@ def run():
         driver.get(target_url)
         time.sleep(5) # 等待页面加载完成
 
-# --- 找到 [3. 续订操作] 这一段，替换为以下内容 ---
-        print("进入服务器详情页，尝试寻找续订按钮...")
-        # 根据截图 5d9c7a.jpg，续订按钮在右侧栏，文本是 'Click Here To Renew'
-        # 我们使用更精确的 XPath 定位 p 标签
-        renew_trigger_xpath = "//p[contains(text(), 'Click Here To Renew')]"
-        renew_trigger = wait.until(EC.element_to_be_clickable((By.XPATH, renew_trigger_xpath)))
+# 3. 增强版续订点击逻辑
+        print("正在寻找续订按钮...")
+        # 优化 XPath：只要包含该文本的元素都匹配，不限标签
+        renew_xpath = "//*[contains(text(), 'Click Here To Renew')]"
         
-        # 滚动到该元素并点击
-        driver.execute_script("arguments[0].scrollIntoView();", renew_trigger)
-        time.sleep(1)
-        renew_trigger.click()
-        print("已点击续订链接，等待确认弹窗...")
+        # 等待元素存在（不仅仅是可点击）
+        renew_element = wait.until(EC.presence_of_element_located((By.XPATH, renew_xpath)))
+        
+        # 滚动并使用 JS 强制执行，无视遮挡或可见性
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", renew_element)
+        time.sleep(2)
+        driver.execute_script("arguments[0].click();", renew_element)
+        print("已触发续订弹窗...")
 
-# --- 找到 [4. 点击确认按钮] 这一段，确保定位如下 ---
-        # 根据截图 5da306.png，确认按钮是红色的，文本为 'Okay'
+        # 4. 二次确认
         confirm_btn_xpath = "//button[contains(text(), 'Okay')]"
+        # 有时弹窗动画需要时间，先等待存在再点击
         confirm_btn = wait.until(EC.element_to_be_clickable((By.XPATH, confirm_btn_xpath)))
         confirm_btn.click()
-        print("续订确认已点击！")
-        time.sleep(8)
-        driver.refresh()
+        print("续订确认已点击")
         
         # 抓取最新时间
 # 获取最终时间
