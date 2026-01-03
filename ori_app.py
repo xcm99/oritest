@@ -22,70 +22,74 @@ def run():
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--window-size=1920,1080')
-    options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36')
     
     driver = uc.Chrome(options=options)
-    # 增加全局隐式等待
-    driver.implicitly_wait(10)
-    wait = WebDriverWait(driver, 45) # 增加到45秒，详情页渲染较慢
+    wait = WebDriverWait(driver, 40)
 
     try:
+        # 1. 登录
         print("开始登录...")
         driver.get("https://panel.orihost.com/auth/login")
         wait.until(EC.presence_of_element_located((By.NAME, "username"))).send_keys(os.environ.get("ORIHOST_USER"))
         driver.find_element(By.NAME, "password").send_keys(os.environ.get("ORIHOST_PASS"))
         driver.find_element(By.XPATH, "//button[contains(., 'Sign In')]").click()
         
-# --- 找到 [2. 动态进入服务器详情页] 这一段，替换为以下内容 ---
-        print("登录成功，直接跳转至服务器详情页...")
-        # 直接使用你截图中的服务器详情地址，避开首页点击不稳定的问题
-        target_url = "https://panel.orihost.com/server/5939989e"
-        driver.get(target_url)
-        time.sleep(5) # 等待页面加载完成
+        # 2. 跳转详情页
+        time.sleep(15) 
+        print("跳转至服务器详情页...")
+        driver.get("https://panel.orihost.com/server/5939989e")
+        time.sleep(15) # 详情页黑屏控制台加载极慢，必须等待
 
-# 3. 暴力寻找续订点击位
-        print("寻找续订入口...")
-        # 方案：定位包含 'DAYS UNTIL RENEWAL' 的 div，并点击它最后一部分
-        # 这是为了绕过可能无法直接识别文本 'Click Here To Renew' 的问题
-        renew_box_xpath = "//div[p[contains(text(), 'DAYS UNTIL RENEWAL')]]"
+        # 3. 使用 JS 深度扫描并点击续订区域
+        print("执行 JS 深度扫描定位...")
+        # 逻辑：寻找包含 'RENEWAL' 文本的卡片，并点击该卡片的底部区域
+        script = """
+        let elements = document.querySelectorAll('div, p, span');
+        for (let el of elements) {
+            if (el.innerText && el.innerText.includes('RENEWAL')) {
+                let parentCard = el.closest('div');
+                if (parentCard) {
+                    parentCard.scrollIntoView({block: 'center'});
+                    parentCard.click();
+                    return true;
+                }
+            }
+        }
+        return false;
+        """
+        success = driver.execute_script(script)
         
-        try:
-            target = wait.until(EC.presence_of_element_located((By.XPATH, renew_box_xpath)))
-            print("找到续订区域，执行强制点击...")
-            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target)
-            time.sleep(2)
-            # 点击该容器，通常点击文字周围也会触发跳转
-            driver.execute_script("arguments[0].click();", target)
-        except:
-            # 备选方案：尝试更简单的文本匹配
-            print("主要方案失败，尝试备选文本点击...")
-            fallback = driver.find_element(By.XPATH, "//*[contains(text(), 'Renew')]")
-            driver.execute_script("arguments[0].click();", fallback)
-
-        # 4. 二次确认弹窗
-        print("等待 'Okay' 按钮...")
-        # 弹窗按钮通常在点击后 1-2 秒出现
-        ok_btn_xpath = "//button[text()='Okay' or contains(., 'Okay')]"
-        ok_btn = wait.until(EC.element_to_be_clickable((By.XPATH, ok_btn_xpath)))
+        if not success:
+            print("JS 扫描失败，尝试固定坐标兜底点击...")
+            # 根据 1920x1080 分辨率下右侧栏的大致位置进行点击
+            driver.execute_script("document.elementFromPoint(1600, 900).click();")
+        
+        # 4. 确认弹窗
+        print("等待确认弹窗...")
+        time.sleep(3)
+        # 弹窗按钮通常是红色 'Okay'
+        ok_xpath = "//button[contains(@class, 'bg-red') or contains(text(), 'Okay') or contains(., 'Okay')]"
+        ok_btn = wait.until(EC.element_to_be_clickable((By.XPATH, ok_xpath)))
         ok_btn.click()
-        print("确认按钮已点击！")
-        
-        # 抓取最新时间
-# 获取最终时间
+        print("续订确认已完成")
+
+        # 5. 结果抓取
+        time.sleep(10)
+        driver.refresh()
         time.sleep(5)
-        days_element = wait.until(EC.presence_of_element_located((By.XPATH, "//div[p[contains(text(), 'DAYS UNTIL RENEWAL')]]/p[1]")))
-        current_days = days_element.text.strip()
+        # 获取天数
+        res = driver.execute_script("return document.body.innerText.match(/(\d+)\s*days/)[0] || '未知';")
         
-        # 这里的消息会告诉你续订后的具体天数
-        success_msg = f"✅ Orihost 自动续订成功！\n当前剩余：{current_days} (上限21天)"
-        send_tg(success_msg)
+        msg = f"✅ Orihost 自动续订任务已执行！\n检测到当前：{res}"
+        print(msg)
+        send_tg(msg)
 
     except Exception as e:
-        driver.save_screenshot("error_screenshot.png") 
-        err_msg = f"❌ Orihost 续订失败\n原因：{str(e)}"
+        driver.save_screenshot("error_screenshot.png")
+        err_msg = f"❌ 续订流程异常：{str(e)[:100]}"
         print(err_msg)
         send_tg(err_msg)
-        raise e # 抛出异常让 GitHub Actions 显示失败
+        raise e
     finally:
         driver.quit()
 
