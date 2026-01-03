@@ -43,26 +43,32 @@ def run():
         driver.get(target_url)
         time.sleep(5) # 等待页面加载完成
 
-# 3. 增强版续订点击逻辑
-        print("正在寻找续订按钮...")
-        # 优化 XPath：只要包含该文本的元素都匹配，不限标签
-        renew_xpath = "//*[contains(text(), 'Click Here To Renew')]"
+# 3. 暴力寻找续订点击位
+        print("寻找续订入口...")
+        # 方案：定位包含 'DAYS UNTIL RENEWAL' 的 div，并点击它最后一部分
+        # 这是为了绕过可能无法直接识别文本 'Click Here To Renew' 的问题
+        renew_box_xpath = "//div[p[contains(text(), 'DAYS UNTIL RENEWAL')]]"
         
-        # 等待元素存在（不仅仅是可点击）
-        renew_element = wait.until(EC.presence_of_element_located((By.XPATH, renew_xpath)))
-        
-        # 滚动并使用 JS 强制执行，无视遮挡或可见性
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", renew_element)
-        time.sleep(2)
-        driver.execute_script("arguments[0].click();", renew_element)
-        print("已触发续订弹窗...")
+        try:
+            target = wait.until(EC.presence_of_element_located((By.XPATH, renew_box_xpath)))
+            print("找到续订区域，执行强制点击...")
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", target)
+            time.sleep(2)
+            # 点击该容器，通常点击文字周围也会触发跳转
+            driver.execute_script("arguments[0].click();", target)
+        except:
+            # 备选方案：尝试更简单的文本匹配
+            print("主要方案失败，尝试备选文本点击...")
+            fallback = driver.find_element(By.XPATH, "//*[contains(text(), 'Renew')]")
+            driver.execute_script("arguments[0].click();", fallback)
 
-        # 4. 二次确认
-        confirm_btn_xpath = "//button[contains(text(), 'Okay')]"
-        # 有时弹窗动画需要时间，先等待存在再点击
-        confirm_btn = wait.until(EC.element_to_be_clickable((By.XPATH, confirm_btn_xpath)))
-        confirm_btn.click()
-        print("续订确认已点击")
+        # 4. 二次确认弹窗
+        print("等待 'Okay' 按钮...")
+        # 弹窗按钮通常在点击后 1-2 秒出现
+        ok_btn_xpath = "//button[text()='Okay' or contains(., 'Okay')]"
+        ok_btn = wait.until(EC.element_to_be_clickable((By.XPATH, ok_btn_xpath)))
+        ok_btn.click()
+        print("确认按钮已点击！")
         
         # 抓取最新时间
 # 获取最终时间
