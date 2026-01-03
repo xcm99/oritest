@@ -21,11 +21,13 @@ def run():
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    # 模拟真实浏览器特征
+    options.add_argument('--window-size=1920,1080')
     options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36')
     
     driver = uc.Chrome(options=options)
-    wait = WebDriverWait(driver, 30)
+    # 增加全局隐式等待
+    driver.implicitly_wait(10)
+    wait = WebDriverWait(driver, 45) # 增加到45秒，详情页渲染较慢
 
     try:
         print("开始登录...")
