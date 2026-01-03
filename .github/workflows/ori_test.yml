@@ -29,9 +29,9 @@ jobs:
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
         run: python ori_app.py
 
-      - name: Upload Error Screenshot
+- name: Upload Error Screenshot
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4  # 升级到 v4 即可正常运行
         with:
           name: error-screenshot
           path: error_screenshot.png
